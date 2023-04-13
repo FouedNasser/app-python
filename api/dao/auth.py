@@ -31,6 +31,42 @@ class AuthDAO:
         encrypted = bcrypt.hashpw(plain_password.encode("utf8"), bcrypt.gensalt()).decode('utf8')
 
         # TODO: Handle unique constraint error
+        
+        #creating the unit of work
+        def create_user(tx,email,encrypted,name):
+            cypher="""
+            CREATE (u:User{
+            userId:randomUuid(),
+            email:$email,
+            password:$encrypted,
+            name:$name
+            })
+            return u 
+            
+            """
+            result=tx.run(cypher,email=email,encrypted=encrypted,name=name)
+            return result.single()
+        #executing the function within a write transaction + generating a token
+        try:
+            with self.driver.session() as session:
+               result = session.execute_write(create_user,email,encrypted,name)
+               user=result['u'] 
+               payload={
+                   "userId":user["userId"], 
+                   "email":user["email"],
+                   "name":user["name"],
+               }
+               payload["token"]=self._generate_token(payload)
+               return payload
+          
+        
+        except  ConstraintError as err:
+            raise ValidationException(err.message,{"email":err.message})
+
+
+
+            
+
         if email != "graphacademy@neo4j.com":
             raise ValidationException(
                 f"An account already exists with the email address {email}",
