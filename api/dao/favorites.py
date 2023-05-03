@@ -22,8 +22,23 @@ class FavoriteDAO:
     """
     # tag::all[]
     def all(self, user_id, sort = 'title', order = 'ASC', limit = 6, skip = 0):
-        # TODO: Open a new session
-        # TODO: Retrieve a list of movies favorited by the user
+    # Open a new session
+        with self.driver.session() as session:
+            # Retrieve a list of movies favorited by the user
+            movies = session.execute_read(lambda tx: tx.run("""
+                MATCH (u:User {{userId: $userId}})-[r:HAS_FAVORITE]->(m:Movie)
+                RETURN m {{
+                    .*,
+                    favorite: true
+                }} AS movie
+                ORDER BY m.`{0}` {1}
+                SKIP $skip
+                LIMIT $limit
+            """.format(sort, order), userId=user_id, limit=limit, skip=skip).value("movie"))
+
+            return movies
+
+        
         return popular
     # end::all[]
 
@@ -40,7 +55,24 @@ class FavoriteDAO:
         # TODO: Define a new transaction function to create a HAS_FAVORITE relationship
         # TODO: Execute the transaction function within a Write Transaction
         # TODO: Return movie details and `favorite` property
-
+        def add_to_favorites(tx,user_id,movie_id):
+            cypher="""
+            MATCH (u:User{userId:$userId})
+            MATCH (m:Movie{tmdbId:$movieId})
+            MERGE (u)-[r:HAS_FAVORITE]->(m) ON CREATE SET r.createdAt=datetime()
+            RETURN m{
+                .*,
+                favorite:true
+            } AS movie
+            """
+            row=tx.run(cypher,userId=user_id,movieId=movie_id).single()
+            if row == None:
+                raise NotFoundException()
+            return row.get("movie")
+        with self.driver.session() as session:  
+            return session.execute_write(add_to_favorites,user_id,movie_id)
+            
+        
         return {
             **goodfellas,
             "favorite": False
@@ -60,6 +92,21 @@ class FavoriteDAO:
         # TODO: Define a transaction function to delete the HAS_FAVORITE relationship within a Write Transaction
         # TODO: Execute the transaction function within a Write Transaction
         # TODO: Return movie details and `favorite` property
+        def remove_from_favorties(tx,user_id,movie_id):
+            cypher="""
+            MATCH (u:User{userId:$userId})-[r:HAS_FAVORITE]->(m:Movie{tmdbId:$movieId})
+            DELETE r
+            RETURN m{
+                .*,
+                favorite:false
+            } AS movie
+            """
+            row=tx.run(cypher,userId=user_id,movieId=movie_id).single()
+            if row == None:
+                return NotFoundException
+            return row.get("movie")
+        with self.driver.session() as session:
+            return session.execute_write(remove_from_favorties,user_id,movie_id) 
 
         return {
             **goodfellas,
