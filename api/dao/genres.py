@@ -65,6 +65,29 @@ class GenreDAO:
         # TODO: Open a new session
         # TODO: Define a unit of work to find the genre by it's name
         # TODO: Execute within a Read Transaction
+        def genre_details(tx,name):
+            cypher="""
+            MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
+            WHERE m.imdbRating IS NOT NULL AND m.poster IS NOT NULL AND g.name <> '(no genres listed)'
+            WITH g, m
+            ORDER BY m.imdbRating DESC
+
+            WITH g, head(collect(m)) AS movie
+
+            RETURN g {
+                .name,
+                movies: count { (g)<-[:IN_GENRE]-() },
+                poster: movie.poster
+            } AS genre
+            """
+            first=tx.run(cypher,name=name).single()
+            if first == None:
+                raise NotFoundException()
+            return first.get("genre")
+        with self.driver.session() as session:
+            return session.execute_read(genre_details,name)
+            
+        
 
         return [g for g in genres if g["name"] == name][0]
     # end::find[]
