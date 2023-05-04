@@ -64,6 +64,23 @@ class MovieDAO:
         # TODO: Get Movies in a Genre
         # TODO: The Cypher string will be formated so remember to escape the braces: {{name: $name}}
         # MATCH (m:Movie)-[:IN_GENRE]->(:Genre {name: $name})
+        def unit_of_work(tx,sort,order,limit,skip,user_id):
+            favorites = self.get_user_favorites(tx,user_id)
+            #defining the cypher statement
+            cypher="""
+                MATCH (m:Movie)-[:IN_GENRE]->(:Genre {{name: $name}})
+                WHERE m.{0} IS NOT NULL
+                RETURN m{{.*,favorite:m.tmdbId IN $favorites}} AS movie
+                ORDER BY m.{0} {1}
+                SKIP $skip
+                LIMIT $limit
+            """.format(sort,order)
+
+            #running the cypher statement within the transaction
+            result=tx.run(cypher,name=name,skip=skip,limit=limit,user_id=user_id,favorites=favorites)
+            return [row.value("movie") for row in result]
+        with self.driver.session() as session:
+            return session.execute_read(unit_of_work,sort,order,limit,skip,user_id)
 
         return popular[skip:limit]
     # end::getByGenre[]
@@ -85,6 +102,23 @@ class MovieDAO:
         # TODO: Get Movies for an Actor
         # TODO: The Cypher string will be formated so remember to escape the braces: {{tmdbId: $id}}
         # MATCH (:Person {tmdbId: $id})-[:ACTED_IN]->(m:Movie)
+        def unit_of_work(tx,sort,order,limit,skip,user_id):
+            favorites = self.get_user_favorites(tx,user_id)
+            #defining the cypher statement
+            cypher="""
+                MATCH (:Person {{tmdbId: $id}})-[:ACTED_IN]->(m:Movie)
+                WHERE m.{0} IS NOT NULL
+                RETURN m{{.*,favorite:m.tmdbId IN $favorites}} AS movie
+                ORDER BY m.{0} {1}
+                SKIP $skip
+                LIMIT $limit
+            """.format(sort,order)
+
+            #running the cypher statement within the transaction
+            result=tx.run(cypher,id=id,skip=skip,limit=limit,user_id=user_id,favorites=favorites)
+            return [row.value("movie") for row in result]
+        with self.driver.session() as session:
+            return session.execute_read(unit_of_work,sort,order,limit,skip,user_id)
 
         return popular[skip:limit]
     # end::getForActor[]
@@ -106,6 +140,23 @@ class MovieDAO:
         # TODO: Get Movies directed by a Person
         # TODO: The Cypher string will be formated so remember to escape the braces: {{name: $name}}
         # MATCH (:Person {tmdbId: $id})-[:DIRECTED]->(m:Movie)
+        def unit_of_work(tx,sort,order,limit,skip,user_id):
+            favorites = self.get_user_favorites(tx,user_id)
+            #defining the cypher statement
+            cypher="""
+                MATCH (:Person {{tmdbId: $id}})-[:DIRECTED]->(m:Movie)
+                WHERE m.{0} IS NOT NULL
+                RETURN m{{.*,favorite:m.tmdbId IN $favorites}} AS movie
+                ORDER BY m.{0} {1}
+                SKIP $skip
+                LIMIT $limit
+            """.format(sort,order)
+
+            #running the cypher statement within the transaction
+            result=tx.run(cypher,id=id,skip=skip,limit=limit,user_id=user_id,favorites=favorites)
+            return [row.value("movie") for row in result]
+        with self.driver.session() as session:
+            return session.execute_read(unit_of_work,sort,order,limit,skip,user_id)
 
         return popular[skip:limit]
     # end::getForDirector[]
