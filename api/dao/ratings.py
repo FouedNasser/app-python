@@ -61,6 +61,24 @@ class RatingDAO:
     def for_movie(self, id, sort = 'timestamp', order = 'ASC', limit = 6, skip = 0):
         # TODO: Get ratings for a Movie
         # TODO: Remember to escape the braces in the cypher query with double braces: {{ }}
+        def unit_of_work(tx,id,sort,order,limit):
+            cypher="""
+                MATCH (u:User)-[r:RATED]->(m:Movie {{tmdbId: $id}})
+                RETURN r {{
+                    .rating,
+                    .timestamp,
+                    user: u {{
+                        .userId, .name
+                    }}
+                }} AS review
+                ORDER BY r.{0} {1}
+                SKIP $skip
+                LIMIT $limit
+            """.format(sort,order)
+            result=tx.run(cypher,id=id,limit=limit,skip=skip)
+            return[row.get("review") for row in result]
+        with self.driver.session() as session:
+            return session.execute_read(unit_of_work,id,sort,order,limit)
 
         return ratings
     # end::forMovie[]
